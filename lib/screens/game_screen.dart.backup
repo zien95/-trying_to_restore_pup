@@ -1,0 +1,1071 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../models/pet.dart';
+import '../providers/game_provider.dart';
+import '../widgets/stat_bar.dart';
+import 'settings_screen.dart';
+import 'mini_games_screen.dart';
+
+class GameScreen extends StatefulWidget {
+  const GameScreen({super.key});
+
+  @override
+  State<GameScreen> createState() => _GameScreenState();
+}
+
+class _GameScreenState extends State<GameScreen> {
+  bool _showActions = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<GameProvider>(
+      builder: (context, gameProvider, child) {
+        final pet = gameProvider.pet!;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF2D2D3A),
+          body: SafeArea(
+            child: SingleChildScrollView( // <-- Added SingleChildScrollView here
+              child: Column(
+                children: [
+                  // Header
+                  _buildHeader(pet.name, pet.level),
+
+                  // Pet Avatar
+                  SizedBox(
+                    height: MediaQuery.of(context).size.height * 0.35, // Constrained height instead of Expanded
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Status Badge
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(pet.status),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  pet.statusIcon,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  pet.status,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          // Pet Emoji
+                          Container(
+                            width: 140,
+                            height: 140,
+                            decoration: BoxDecoration(
+                              color: pet.type.color.withOpacity(0.3),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: pet.type.color,
+                                width: 4,
+                              ),
+                            ),
+                            child: Center(
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Text(
+                                    pet.type.emoji,
+                                    style: const TextStyle(fontSize: 80),
+                                  ),
+                                  if (pet.currentAccessory.isNotEmpty)
+                                    Positioned(
+                                      top: 0,
+                                      right: 0,
+                                      child: Text(
+                                        _getAccessoryEmoji(pet.currentAccessory),
+                                        style: const TextStyle(fontSize: 24),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Stats Panel
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E1E2C),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Column(
+                      children: [
+                        StatBar(
+                          label: 'Hunger',
+                          value: pet.hunger,
+                          icon: Icons.restaurant,
+                          color: Colors.orange,
+                        ),
+                        const SizedBox(height: 12),
+                        StatBar(
+                          label: 'Energy',
+                          value: pet.energy,
+                          icon: Icons.bolt,
+                          color: Colors.yellow,
+                        ),
+                        const SizedBox(height: 12),
+                        StatBar(
+                          label: 'Clean',
+                          value: pet.cleanliness,
+                          icon: Icons.cleaning_services,
+                          color: Colors.cyan,
+                        ),
+                        const SizedBox(height: 12),
+                        StatBar(
+                          label: 'Happy',
+                          value: pet.happiness,
+                          icon: Icons.favorite,
+                          color: Colors.pink,
+                        ),
+                        const SizedBox(height: 12),
+                        StatBar(
+                          label: 'Health',
+                          value: pet.health,
+                          icon: Icons.favorite_border,
+                          color: Colors.red,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Bottom Stats & Actions
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        // Currency & Level Row
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _StatChip(
+                              icon: Icons.attach_money,
+                              value: pet.coins.toString(),
+                              color: Colors.amber,
+                            ),
+                            _StatChip(
+                              icon: Icons.diamond,
+                              value: pet.gems.toString(),
+                              color: Colors.blue,
+                            ),
+                            _StatChip(
+                              icon: Icons.timer,
+                              value: '${pet.playTimeMinutes}m',
+                              color: Colors.green,
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF7B1FA2),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.star,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Lv ${pet.level}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // XP Bar
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1E1E2C),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.trending_up,
+                                color: Colors.white54,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'XP ${pet.xp}/${pet.xpToNextLevel}',
+                                style: const TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Action Buttons or Show Actions Button
+                        if (!_showActions)
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                context.read<GameProvider>().playClickSound();
+                                setState(() => _showActions = true);
+                              },
+                              icon: const Icon(Icons.apps),
+                              label: const Text('Actions'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF7B1FA2),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          _buildActionGrid(gameProvider),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20), // Bottom padding for scroll
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(String name, int level) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF7B1FA2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              '$name - Lv $level',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  context.read<GameProvider>().playClickSound();
+                  _showRenameDialog(context);
+                },
+                icon: const Icon(Icons.edit, color: Colors.white54),
+              ),
+              IconButton(
+                onPressed: () {
+                  context.read<GameProvider>().playClickSound();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.settings, color: Colors.white54),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionGrid(GameProvider gameProvider) {
+    final actions = [
+      _ActionItem(
+        icon: Icons.restaurant,
+        label: 'Feed',
+        color: Colors.orange,
+        onTap: gameProvider.feed,
+      ),
+      _ActionItem(
+        icon: Icons.sports_esports,
+        label: 'Play',
+        color: Colors.pink,
+        onTap: gameProvider.play,
+      ),
+      _ActionItem(
+        icon: Icons.bathtub,
+        label: 'Clean',
+        color: Colors.cyan,
+        onTap: gameProvider.clean,
+      ),
+      _ActionItem(
+        icon: Icons.bedtime,
+        label: 'Sleep',
+        color: Colors.indigo,
+        onTap: gameProvider.sleep,
+      ),
+      _ActionItem(
+        icon: Icons.fitness_center,
+        label: 'Train',
+        color: Colors.red,
+        onTap: gameProvider.train,
+      ),
+      _ActionItem(
+        icon: Icons.videogame_asset,
+        label: 'Games',
+        color: Colors.purple,
+        onTap: () {
+          context.read<GameProvider>().playClickSound();
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const MiniGamesScreen()),
+          );
+        },
+      ),
+      _ActionItem(
+        icon: Icons.local_hospital,
+        label: 'Medicine',
+        color: Colors.teal,
+        onTap: gameProvider.giveMedicine,
+      ),
+      _ActionItem(
+        icon: Icons.shopping_bag,
+        label: 'Items',
+        color: Colors.green,
+        onTap: () {
+          context.read<GameProvider>().playClickSound();
+          _showItemsDialog(context, gameProvider);
+        },
+      ),
+      _ActionItem(
+        icon: Icons.emoji_events,
+        label: 'Skills',
+        color: Colors.amber,
+        onTap: () {
+          context.read<GameProvider>().playClickSound();
+          _showSkillsDialog(context, gameProvider);
+        },
+      ),
+      _ActionItem(
+        icon: Icons.favorite,
+        label: 'Bond',
+        color: Colors.pink[300]!,
+        onTap: () {
+          gameProvider.increaseFriendship();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❤️ Friendship increased!')),
+          );
+        },
+      ),
+      _ActionItem(
+        icon: Icons.accessibility,
+        label: 'Accessories',
+        color: Colors.blue[300]!,
+        onTap: () {
+          context.read<GameProvider>().playClickSound();
+          _showAccessoriesDialog(context, gameProvider);
+        },
+      ),
+      _ActionItem(
+        icon: Icons.military_tech,
+        label: 'Awards',
+        color: Colors.yellow[700]!,
+        onTap: () {
+          context.read<GameProvider>().playClickSound();
+          _showAchievementsDialog(context, gameProvider);
+        },
+      ),
+      _ActionItem(
+        icon: Icons.close,
+        label: 'Close',
+        color: Colors.grey,
+        onTap: () {
+          context.read<GameProvider>().playClickSound();
+          setState(() => _showActions = false);
+        },
+      ),
+    ];
+
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4,
+        childAspectRatio: 0.8,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+      ),
+      itemCount: actions.length,
+      itemBuilder: (context, index) => _buildActionButton(actions[index]),
+    );
+  }
+
+  Widget _buildActionButton(_ActionItem action) {
+    return GestureDetector(
+      onTap: action.onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: action.color,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              action.icon,
+              color: Colors.white,
+              size: 28,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            action.label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'Critical':
+        return Colors.red;
+      case 'Starving':
+      case 'Exhausted':
+      case 'Dirty':
+      case 'Sad':
+        return Colors.orange;
+      case 'Happy':
+        return Colors.green;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  void _showRenameDialog(BuildContext context) {
+    final controller = TextEditingController(
+      text: context.read<GameProvider>().pet!.name,
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2D3A),
+        title: const Text(
+          'Rename Your Pet',
+          style: TextStyle(color: Colors.white),
+          textAlign: TextAlign.center,
+        ),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Colors.white),
+          textAlign: TextAlign.center,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFF1E1E2C),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              context.read<GameProvider>().playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              if (name.isNotEmpty) {
+                context.read<GameProvider>().renamePet(name);
+                Navigator.pop(context);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF7B1FA2),
+              foregroundColor: Colors.white,
+            ),
+            String _getAccessoryEmoji(String accessory) {
+    switch (accessory) {
+      case 'hat':
+        return '🎩';
+      case 'scarf':
+        return '🧣';
+      case 'glasses':
+        return '🕶️';
+      case 'bow':
+        return '🎀';
+      case 'collar':
+        return '⭕';
+      default:
+        return '✨';
+    }
+  }
+
+  Color _getMoodColor(PetMood mood) {
+    switch (mood) {
+      case PetMood.happy:
+        return Colors.yellow;
+      case PetMood.excited:
+        return Colors.orange;
+      case PetMood.sleepy:
+        return Colors.purple;
+      case PetMood.hungry:
+        return Colors.red;
+      case PetMood.sad:
+        return Colors.blue;
+      case PetMood.sick:
+        return Colors.grey;
+      case PetMood.playful:
+        return Colors.green;
+      case PetMood.loving:
+        return Colors.pink;
+    }
+  }
+
+  void _showItemsDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    final items = ['treat', 'toy', 'medicine', 'energy_drink'];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🎒 Inventory'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (pet.inventory.isEmpty)
+                const Text('No items in inventory')
+              else
+                Wrap(
+                  spacing: 8,
+                  children: pet.inventory.map((item) {
+                    return Chip(
+                      label: Text(item),
+                      onDeleted: () {
+                        gameProvider.useItem(item);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+              const Text('Buy items:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ...items.map((item) => ListTile(
+                title: Text(item),
+                subtitle: Text('${item == 'medicine' ? '10' : '5'} coins'),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    gameProvider.buyItem(item, item == 'medicine' ? 10 : 5);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Buy'),
+                ),
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSkillsDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    final skills = ['intelligence', 'strength', 'agility', 'charisma'];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🏆 Skills'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: skills.map((skill) {
+              final level = pet.skills[skill] ?? 0;
+              return ListTile(
+                title: Text(skill),
+                subtitle: LinearProgressIndicator(value: level / 10),
+                trailing: Text('Lv $level'),
+                onTap: () {
+                  if (level < 10) {
+                    gameProvider.levelUpSkill(skill);
+                    Navigator.pop(context);
+                  }
+                },
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAccessoriesDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    final accessories = ['hat', 'scarf', 'glasses', 'bow', 'collar'];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('👗 Accessories'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (pet.accessories.isEmpty)
+                const Text('No accessories owned')
+              else
+                Wrap(
+                  spacing: 8,
+                  children: pet.accessories.map((accessory) {
+                    return FilterChip(
+                      label: Text(accessory),
+                      selected: pet.currentAccessory == accessory,
+                      onSelected: (selected) {
+                        if (selected) {
+                          gameProvider.wearAccessory(accessory);
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+              const Text('Buy accessories:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ...accessories.map((accessory) => ListTile(
+                title: Text(accessory),
+                subtitle: Text('20 gems'),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    gameProvider.buyItem(accessory, 20, isGem: true);
+                    if (pet.gems >= 20) {
+                      gameProvider.addAccessory(accessory);
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Buy'),
+                ),
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAchievementsDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🏅 Achievements'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: pet.achievements.isEmpty
+              ? const Center(child: Text('No achievements yet! Keep playing!'))
+              : ListView.builder(
+                  itemCount: pet.achievements.length,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      leading: const Icon(Icons.emoji_events, color: Colors.amber),
+                      title: Text(pet.achievements[index]),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final Color color;
+
+  const _StatChip({
+    required this.icon,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E2C),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getAccessoryEmoji(String accessory) {
+    switch (accessory) {
+      case 'hat':
+        return '🎩';
+      case 'scarf':
+        return '🧣';
+      case 'glasses':
+        return '🕶️';
+      case 'bow':
+        return '🎀';
+      case 'collar':
+        return '⭕';
+      default:
+        return '✨';
+    }
+  }
+
+  Color _getMoodColor(PetMood mood) {
+    switch (mood) {
+      case PetMood.happy:
+        return Colors.yellow;
+      case PetMood.excited:
+        return Colors.orange;
+      case PetMood.sleepy:
+        return Colors.purple;
+      case PetMood.hungry:
+        return Colors.red;
+      case PetMood.sad:
+        return Colors.blue;
+      case PetMood.sick:
+        return Colors.grey;
+      case PetMood.playful:
+        return Colors.green;
+      case PetMood.loving:
+        return Colors.pink;
+    }
+  }
+
+  void _showItemsDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    final items = ['treat', 'toy', 'medicine', 'energy_drink'];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🎒 Inventory'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (pet.inventory.isEmpty)
+                const Text('No items in inventory')
+              else
+                Wrap(
+                  spacing: 8,
+                  children: pet.inventory.map((item) {
+                    return Chip(
+                      label: Text(item),
+                      onDeleted: () {
+                        gameProvider.useItem(item);
+                        Navigator.pop(context);
+                      },
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+              const Text('Buy items:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ...items.map((item) => ListTile(
+                title: Text(item),
+                subtitle: Text('${item == 'medicine' ? '10' : '5'} coins'),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    gameProvider.buyItem(item, item == 'medicine' ? 10 : 5);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Buy'),
+                ),
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSkillsDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    final skills = ['intelligence', 'strength', 'agility', 'charisma'];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🏆 Skills'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: skills.map((skill) {
+              final level = pet.skills[skill] ?? 0;
+              return ListTile(
+                title: Text(skill),
+                subtitle: LinearProgressIndicator(value: level / 10),
+                trailing: Text('Lv $level'),
+                onTap: () {
+                  if (level < 10) {
+                    gameProvider.levelUpSkill(skill);
+                    Navigator.pop(context);
+                  }
+                },
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAccessoriesDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    final accessories = ['hat', 'scarf', 'glasses', 'bow', 'collar'];
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('👗 Accessories'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (pet.accessories.isEmpty)
+                const Text('No accessories owned')
+              else
+                Wrap(
+                  spacing: 8,
+                  children: pet.accessories.map((accessory) {
+                    return FilterChip(
+                      label: Text(accessory),
+                      selected: pet.currentAccessory == accessory,
+                      onSelected: (selected) {
+                        if (selected) {
+                          gameProvider.wearAccessory(accessory);
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+              const SizedBox(height: 16),
+              const Text('Buy accessories:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ...accessories.map((accessory) => ListTile(
+                title: Text(accessory),
+                subtitle: Text('20 gems'),
+                trailing: ElevatedButton(
+                  onPressed: () {
+                    gameProvider.buyItem(accessory, 20, isGem: true);
+                    if (pet.gems >= 20) {
+                      gameProvider.addAccessory(accessory);
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Buy'),
+                ),
+              )),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAchievementsDialog(BuildContext context, GameProvider gameProvider) {
+    final pet = gameProvider.pet!;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('🏅 Achievements'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 300,
+          child: pet.achievements.isEmpty
+              ? const Center(child: Text('No achievements yet! Keep playing!'))
+              : ListView.builder(
+                  itemCount: pet.achievements.length,
+                  itemBuilder: (context, index) {
+                    return ListTile(
+                      leading: const Icon(Icons.emoji_events, color: Colors.amber),
+                      title: Text(pet.achievements[index]),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              gameProvider.playClickSound();
+              Navigator.pop(context);
+            },
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionItem {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  _ActionItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+}

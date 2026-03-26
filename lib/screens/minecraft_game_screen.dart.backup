@@ -1,0 +1,564 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../providers/game_provider.dart';
+import '../services/sound_service.dart';
+
+class MinecraftGameScreen extends StatefulWidget {
+  const MinecraftGameScreen({super.key});
+
+  @override
+  State<MinecraftGameScreen> createState() => _MinecraftGameScreenState();
+}
+
+class _MinecraftGameScreenState extends State<MinecraftGameScreen> {
+  final SoundService _soundService = SoundService();
+  double _playerX = 5.0;
+  double _playerY = 5.0;
+  double _playerZ = 0.0;
+  int _score = 0;
+  int _blocksPlaced = 0;
+  bool _isFlying = false;
+  bool _isSneaking = false;
+  String _selectedBlock = 'stone';
+  int _hotbarIndex = 0;
+  List<String> _inventory = ['air', 'air', 'air', 'air', 'air', 'air', 'air', 'air', 'air', 'air'];
+  List<String> _hotbar = ['stone', 'dirt', 'grass', 'wood', 'glass', 'sand', 'water', 'door', 'redstone'];
+  
+  // World generation with more realistic terrain
+  List<List<List<String>>> _world = List.generate(
+    2, 
+    (z) => List.generate(10, (y) => [
+      ['grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass', 'grass'],
+      ['grass', 'dirt', 'dirt', 'grass', 'dirt', 'grass', 'dirt', 'dirt', 'dirt', 'dirt'],
+    ]),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF87CEEB), // Sky blue
+      appBar: AppBar(
+        title: const Text(
+          '⛏️ Minecraft 3D',
+          style: TextStyle(color: Colors.white),
+        ),
+        backgroundColor: const Color(0xFF4CAF50),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            onPressed: () => _toggleFlying(),
+            icon: Icon(_isFlying ? Icons.flight : Icons.flight_land, color: Colors.white),
+            tooltip: _isFlying ? 'Disable Flying' : 'Enable Flying',
+          ),
+          IconButton(
+            onPressed: () => _toggleSneaking(),
+            icon: Icon(Icons.keyboard_arrow_down, color: Colors.white),
+            tooltip: _isSneaking ? 'Stop Sneaking' : 'Sneak',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Game Stats
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            color: Colors.black.withOpacity(0.3),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                Text(
+                  'Score: $_score',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Blocks: $_blocksPlaced',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  'Pos: (${_playerX.toInt()},${_playerY.toInt()},${_playerZ.toInt()})',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // 3D Game Area
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    const Color(0xFF87CEEB),
+                    const Color(0xFF98D8C8),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
+              ),
+              child: Stack(
+                children: [
+                  // 3D Isometric Grid
+                  GridView.builder(
+                    padding: const EdgeInsets.all(20),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 8,
+                      childAspectRatio: 1.2,
+                      crossAxisSpacing: 4,
+                      mainAxisSpacing: 4,
+                    ),
+                    itemCount: 80,
+                    itemBuilder: (context, index) {
+                      final x = index % 8;
+                      final y = index ~/ 8;
+                      final z = (index ~/ 64) % 2;
+                      final blockType = _world[z][y][x];
+                      final isPlayer = x == _playerX && y == _playerY && z == _playerZ;
+                      
+                      return Container(
+                        decoration: BoxDecoration(
+                          gradient: isPlayer
+                              ? LinearGradient(
+                                  colors: [Colors.blue.withOpacity(0.8), Colors.cyan.withOpacity(0.6)],
+                                )
+                              : _getBlockGradient(blockType),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isPlayer ? Colors.white : _getBlockBorderColor(blockType),
+                            width: isPlayer ? 2 : 1,
+                          ),
+                          boxShadow: isPlayer ? [
+                            BoxShadow(
+                              color: Colors.white.withOpacity(0.5),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                          ] : [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.3),
+                              blurRadius: 2,
+                              offset: const Offset(1, 1),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: isPlayer
+                              ? const Icon(Icons.person, color: Colors.white, size: 16)
+                              : Text(
+                                  _getBlockEmoji(blockType),
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      );
+                    },
+                  ),
+                  
+                  // 3D Player
+                  Positioned(
+                    left: (_playerX * 50) + 20,
+                    top: (_playerY * 30) + 100,
+                    child: Container(
+                      width: 40,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.blue.withOpacity(0.9), Colors.blue.withOpacity(0.6)],
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                        ),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.white, width: 2),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.5),
+                            blurRadius: 12,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          // 3D Controls
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Colors.black.withOpacity(0.5),
+            child: Column(
+              children: [
+                const Text(
+                  '3D Controls',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    // Movement Controls
+                    Column(
+                      children: [
+                        const Text(
+                          'Move',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _movePlayer(-1, 0, 0),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(35, 35),
+                              ),
+                              child: const Text('↖', style: TextStyle(fontSize: 16)),
+                            ),
+                            const SizedBox(width: 4),
+                            ElevatedButton(
+                              onPressed: () => _movePlayer(1, 0, 0),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(35, 35),
+                              ),
+                              child: const Text('↗', style: TextStyle(fontSize: 16)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _movePlayer(0, -1, 0),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(35, 35),
+                              ),
+                              child: const Text('↙', style: TextStyle(fontSize: 16)),
+                            ),
+                            const SizedBox(width: 4),
+                            ElevatedButton(
+                              onPressed: () => _movePlayer(0, 1, 0),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(35, 35),
+                              ),
+                              child: const Text('↘', style: TextStyle(fontSize: 16)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _movePlayer(0, 0, -1),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(35, 35),
+                              ),
+                              child: const Text('▲', style: TextStyle(fontSize: 16)),
+                            ),
+                            const SizedBox(width: 4),
+                            ElevatedButton(
+                              onPressed: () => _movePlayer(0, 0, 1),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(35, 35),
+                              ),
+                              child: const Text('▼', style: TextStyle(fontSize: 16)),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 16),
+                    // Block Controls
+                    Column(
+                      children: [
+                        const Text(
+                          'Place/Break Blocks',
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('grass'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🌱 Grass'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('dirt'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.brown.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🟫 Dirt'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('stone'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🪨 Stone'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('glass'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🔲 Glass'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('wood'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.brown.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🪵 Wood'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('door'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.orange.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🚪 Door'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('redstone'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🟥 Redstone'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('sand'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.yellow.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('🏖️ Sand'),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () => _placeBlock('water'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue.withOpacity(0.8),
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('💧 Water'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: () => _breakBlock(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.withOpacity(0.8),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('⛏ Break'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  LinearGradient _getBlockGradient(String blockType) {
+    switch (blockType) {
+      case 'grass':
+        return const LinearGradient(colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)]);
+      case 'dirt':
+        return const LinearGradient(colors: [Color(0xFF8B4513), Color(0xFF654321)]);
+      case 'stone':
+        return const LinearGradient(colors: [Color(0xFF9E9E9E), Color(0xFF616161)]);
+      case 'glass':
+        return const LinearGradient(colors: [Color(0xFFE3F2FD), Color(0xFFBBDEFB)]);
+      case 'wood':
+        return const LinearGradient(colors: [Color(0xFF8B4513), Color(0xFF654321)]);
+      case 'door':
+        return const LinearGradient(colors: [Color(0xFF8D6E63), Color(0xFF5D4037)]);
+      case 'redstone':
+        return const LinearGradient(colors: [Color(0xFFB71C1C), Color(0xFF7F0200)]);
+      case 'sand':
+        return const LinearGradient(colors: [Color(0xFFF4E4C1), Color(0xFFD2B48C)]);
+      case 'water':
+        return const LinearGradient(colors: [Color(0xFF2196F3), Color(0xFF0EA5E9)]);
+      default:
+        return const LinearGradient(colors: [Colors.transparent, Colors.transparent]);
+    }
+  }
+
+  Color _getBlockBorderColor(String blockType) {
+    switch (blockType) {
+      case 'grass':
+        return Colors.green;
+      case 'dirt':
+        return Colors.brown;
+      case 'stone':
+        return Colors.grey;
+      case 'glass':
+        return Colors.blue.withOpacity(0.7);
+      case 'wood':
+        return Colors.brown.withOpacity(0.8);
+      case 'door':
+        return Colors.orange;
+      case 'redstone':
+        return Colors.red;
+      case 'sand':
+        return Colors.yellow;
+      case 'water':
+        return Colors.blue;
+      default:
+        return Colors.transparent;
+    }
+  }
+
+  String _getBlockEmoji(String blockType) {
+    switch (blockType) {
+      case 'grass':
+        return '🌱';
+      case 'dirt':
+        return '🟫';
+      case 'stone':
+        return '🪨';
+      case 'glass':
+        return '🔲';
+      case 'wood':
+        return '🪵';
+      case 'door':
+        return '🚪';
+      case 'redstone':
+        return '🟥';
+      case 'sand':
+        return '🏖️';
+      case 'water':
+        return '💧';
+      default:
+        return '';
+    }
+  }
+
+  void _movePlayer(double dx, double dy, double dz) {
+    final newX = (_playerX + dx).clamp(0.0, 7.0).toDouble();
+    final newY = (_playerY + dy).clamp(0.0, 9.0).toDouble();
+    final newZ = (_playerZ + dz).clamp(0.0, 1.0).toDouble();
+    
+    setState(() {
+      _playerX = newX;
+      _playerY = newY;
+      _playerZ = newZ;
+    });
+    _soundService.playSound('click');
+  }
+
+  void _placeBlock(String blockType) {
+    final x = _playerX.round();
+    final y = _playerY.round();
+    final z = _playerZ.round();
+    
+    if (x >= 0 && x < 8 && y >= 0 && y < 10 && z >= 0 && z < 2) {
+      setState(() {
+        _world[z][y][x] = blockType;
+        _blocksPlaced++;
+        _score += 10;
+      });
+      _soundService.playSound('place');
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Placed $blockType at ($x,$y,$z)! +10 points'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _breakBlock() {
+    final x = _playerX.round();
+    final y = _playerY.round();
+    final z = _playerZ.round();
+    
+    if (x >= 0 && x < 8 && y >= 0 && y < 10 && z >= 0 && z < 2) {
+      final blockType = _world[z][y][x];
+      if (blockType != 'air') {
+        setState(() {
+          _world[z][y][x] = 'air';
+          _blocksPlaced++;
+          _score += 5;
+        });
+        _soundService.playSound('break');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              blockType != 'air' 
+                ? 'Broke $blockType at ($x,$y,$z)! +5 points'
+                : 'Already air at ($x,$y,$z)',
+            ),
+            backgroundColor: blockType != 'air' ? Colors.orange : Colors.grey,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+}

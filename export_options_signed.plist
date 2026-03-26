@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>development</string>
+    <key>teamID</key>
+    <string>9JZ8BU782J</string>
+    <key>signingCertificate</key>
+    <string>1FE8C9A7ED2D63CE53003F0253CEEA38</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.example.tryingToRestorePup</key>
+        <string>*</string>
+    </dict>
+    <key>compileBitcode</key>
+    <false/>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <key>destination</key>
+    <string>export</string>
+    <key>stripSwiftSymbols</key>
+    <true/>
+    <key>uploadSymbols</key>
+    <false/>
+</dict>
+</plist>
